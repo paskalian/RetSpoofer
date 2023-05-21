@@ -3,14 +3,13 @@
 #include <vector>
 #include <Psapi.h>
 
-#define HIDWORD(x) (x >> 32)
-#define LODWORD(x) (x & 0xFFFFFFFF)
-
 #define REGISTER_SIZE sizeof(UINT_PTR)
 
 #ifdef _WIN64
+#define FUNCSIG "?SomeFunction4@@YAHHHPEBDHH@Z"
 #define BYTEOFFSET 3
 #else
+#define FUNCSIG "?SomeFunction4@@YAHHHPBDHH@Z"
 #define BYTEOFFSET 2
 #endif
 
@@ -75,6 +74,8 @@ uintptr_t SpoofReturn(HMODULE Module, void* FunctionAddress, std::vector<uintptr
 
     void* GadgetAddress = nullptr;
     size_t ArgumentAmount = 0;
+
+    size_t Try = 0;
     while (TRUE)
     {
         // Adding on top of the ( 0x20 (SHADOW SPACE SIZE ON X64) OR 0x00 ) the amount of extra arguments to pop basically.
@@ -94,7 +95,14 @@ uintptr_t SpoofReturn(HMODULE Module, void* FunctionAddress, std::vector<uintptr
         // first and not be used by the function anyways (this won't interrupt the function frame)
         if (!GadgetAddress)
         {
+            if (Try > 20)
+            {
+                printf("[!] Couldn't find any gadget.\n");
+                return -1;
+            }
+
             Arguments.push_back(0);
+            Try++;
             continue;
         }
         break;
@@ -114,7 +122,7 @@ void MainThread(HMODULE hModule)
     const HMODULE DllBase = GetModuleHandle(NULL);
 
     // Default call
-    auto SomeFunc = (int(__cdecl*)(int, int, const char*, int, int))GetProcAddress(DllBase, "?SomeFunction4@@YAHHHPEBDHH@Z");
+    auto SomeFunc = (int(__cdecl*)(int, int, const char*, int, int))GetProcAddress(DllBase, FUNCSIG);
 
     printf("DEFAULT CALL\n");
     uintptr_t RetVal = SomeFunc(1, 9, "hey", 3, 3);
