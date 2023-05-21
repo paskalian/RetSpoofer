@@ -5,10 +5,8 @@
 ## Information
 **Made for educational purposes only.**<br>
 
-**The 32-bit version isn't tested yet.**
-
 ## Compatibility
-Compatible with both x64 and (--x86--) processes, you **must** use the **specific** version for a process that is x64 or x86 respectively.
+Compatible with both x64 and x86 processes, you **must** use the **specific** version for a process that is x64 or x86 respectively.
 
 ## Example Process Source
 ```cpp
@@ -96,6 +94,8 @@ int main()
 }
 ```
 This is the source code of the example process which our dll gets injected into in the image. It exports some functions (not a must, made it like this so I can easily get the address of it on my dll) and checks if any of those functions were called from it's own module.
+
+**This process give us the necessary gadgets only on x64 so trying to return address spoof this process with x86 doesn't work, but on real world applications that won't be a problem.**
 
 ## Usage
 ```cpp
