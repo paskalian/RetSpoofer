@@ -84,27 +84,41 @@ uintptr_t SpoofReturn(HMODULE Module, void* FunctionAddress, std::vector<uintptr
         SearchBytes[BYTEOFFSET] += ArgumentAmount > 4 ? (ArgumentAmount - 4) * REGISTER_SIZE : 0;
 #else
         if (CallConvention == CALLINGCONVENTION::CC_FASTCALL)
-            SearchBytes[BYTEOFFSET] += ArgumentAmount > 2 ? (ArgumentAmount - 2) * REGISTER_SIZE : 0;
-        else
-            SearchBytes[BYTEOFFSET] += ArgumentAmount * REGISTER_SIZE;
-#endif
-
-        GadgetAddress = SigScan((PCHAR)ModInfo.lpBaseOfDll, ModInfo.SizeOfImage, SearchBytes, sizeof(SearchBytes) - 1);
-
-        // If there is no gadget for that particular amount of variables to pop we add junk arguments to the stack which will be pushed
-        // first and not be used by the function anyways (this won't interrupt the function frame)
-        if (!GadgetAddress)
         {
-            if (Try > 20)
+            SearchBytes[BYTEOFFSET] += ArgumentAmount > 2 ? (ArgumentAmount - 2) * REGISTER_SIZE : 0;
+        }
+        else if (CallConvention == CALLINGCONVENTION::CC_CDECL)
+        {
+            SearchBytes[BYTEOFFSET] += ArgumentAmount * REGISTER_SIZE;
+            GadgetAddress = SigScan((PCHAR)ModInfo.lpBaseOfDll, ModInfo.SizeOfImage, SearchBytes, sizeof(SearchBytes) - 1);
+
+            // If there is no gadget for that particular amount of variables to pop we add junk arguments to the stack which will be pushed
+            // first and not be used by the function anyways (this won't interrupt the function frame)
+            if (!GadgetAddress)
+            {
+                if (Try > 20)
+                {
+                    printf("[!] Couldn't find any gadget.\n");
+                    return -1;
+                }
+
+                Arguments.push_back(0);
+                Try++;
+                continue;
+            }
+        }
+        else
+        {
+            // If the calling convention is stdcall then the stack cleanup for the arguments will be performed by the callee so we only have
+            // to ret again.
+            GadgetAddress = SigScan((PCHAR)ModInfo.lpBaseOfDll, ModInfo.SizeOfImage, (PCHAR)"\xC3", 1);
+            if (!GadgetAddress)
             {
                 printf("[!] Couldn't find any gadget.\n");
                 return -1;
             }
-
-            Arguments.push_back(0);
-            Try++;
-            continue;
         }
+#endif
         break;
     }
 
