@@ -95,7 +95,7 @@ int main()
         ;
 }
 ```
-This is the source code of the example process which exports some functions (not a must, made it like this so I can easily get the address of it on my dll) and checks if any of those functions were called from it's own module.
+This is the source code of the example process which our dll gets injected into in the image. It exports some functions (not a must, made it like this so I can easily get the address of it on my dll) and checks if any of those functions were called from it's own module.
 
 ## Usage
 ```cpp
