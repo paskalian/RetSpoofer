@@ -9,11 +9,22 @@
 Compatible with both x64 and x86 processes, you **must** use the **specific** version for a process that is x64 or x86 respectively.
 
 ## Example Process Source
+### main.cpp
 ```cpp
 #include <intrin.h>
 #include <iostream>
 #include <Windows.h>
 #include <Psapi.h>
+
+#ifndef _WIN64
+__declspec(naked) void provideGadget()
+{
+    __asm
+    {
+        jmp ebx
+    }
+}
+#endif
 
 void IsAuthorizedMemory(uintptr_t Memory)
 {
@@ -93,9 +104,23 @@ int main()
         ;
 }
 ```
-This is the source code of the example process which our dll gets injected into in the image. It exports some functions (not a must, made it like this so I can easily get the address of it on my dll) and checks if any of those functions were called from it's own module.
+### main.asm
+```asm
+IFDEF RAX
 
-**This process provide us the necessary gadgets only on x64 so trying to return address spoof this process on x86 doesn't work, but on real world applications that won't be a problem.**
+.CODE
+
+PROVIDEGADGET PROC
+
+	jmp rbx
+
+PROVIDEGADGET ENDP
+
+ENDIF
+END
+```
+
+This is the source code of the example process which our dll gets injected into in the image. It exports some functions (not a must, made it like this so I can easily get the address of it on my dll) and checks if any of those functions were called from it's own module.
 
 ## Usage
 ```cpp
