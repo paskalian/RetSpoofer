@@ -7,10 +7,8 @@
 
 #ifdef _WIN64
 #define FUNCSIG "?SomeFunction4@@YAHHHPEBDHH@Z"
-#define BYTEOFFSET 3
 #else
 #define FUNCSIG "?SomeFunction4@@YAHHHPBDHH@Z"
-#define BYTEOFFSET 2
 #endif
 
 enum class CALLINGCONVENTION : DWORD
@@ -64,61 +62,35 @@ uintptr_t SpoofReturn(HMODULE Module, void* FunctionAddress, std::vector<uintptr
     MODULEINFO ModInfo = {};
     K32GetModuleInformation(GetCurrentProcess(), Module, &ModInfo, sizeof(MODULEINFO));
 
-    // add rsp, 0x20 (64-bit) OR 0x00 (32-bit, no shadow space)
-    // ret
-#ifdef _WIN64
-    CHAR SearchBytes[] = "\x48\x83\xC4\x20\xC3";
-#else
-    CHAR SearchBytes[] = "\x83\xC4\x00\xC3";
-#endif
+    // jmp ebx
+    CHAR SearchBytes[] = "\xFF\xE3";
 
     void* GadgetAddress = nullptr;
-    size_t ArgumentAmount = 0;
+    size_t ArgumentAmount = Arguments.size();
 
     size_t Try = 0;
     while (TRUE)
     {
-        // Adding on top of the ( 0x20 (SHADOW SPACE SIZE ON X64) OR 0x00 ) the amount of extra arguments to pop basically.
-        ArgumentAmount = Arguments.size();
-#ifdef _WIN64
-        SearchBytes[BYTEOFFSET] += ArgumentAmount > 4 ? (ArgumentAmount - 4) * REGISTER_SIZE : 0;
-#else
-        if (CallConvention == CALLINGCONVENTION::CC_FASTCALL)
+        PIMAGE_DOS_HEADER pImageDosHeader = reinterpret_cast<PIMAGE_DOS_HEADER>(ModInfo.lpBaseOfDll);
+        PIMAGE_NT_HEADERS pNtHeaders = reinterpret_cast<PIMAGE_NT_HEADERS>((char*)pImageDosHeader + pImageDosHeader->e_lfanew);
+        PIMAGE_SECTION_HEADER pFirstSec = IMAGE_FIRST_SECTION(pNtHeaders);
+        for (int i = 0; i < pNtHeaders->FileHeader.NumberOfSections; i++)
         {
-            SearchBytes[BYTEOFFSET] += ArgumentAmount > 2 ? (ArgumentAmount - 2) * REGISTER_SIZE : 0;
-        }
-        else if (CallConvention == CALLINGCONVENTION::CC_CDECL)
-        {
-            SearchBytes[BYTEOFFSET] += ArgumentAmount * REGISTER_SIZE;
-            GadgetAddress = SigScan((PCHAR)ModInfo.lpBaseOfDll, ModInfo.SizeOfImage, SearchBytes, sizeof(SearchBytes) - 1);
-
-            // If there is no gadget for that particular amount of variables to pop we add junk arguments to the stack which will be pushed
-            // first and not be used by the function anyways (this won't interrupt the function frame)
-            if (!GadgetAddress)
+            if ((pFirstSec->Characteristics & IMAGE_SCN_CNT_CODE) || (_stricmp((const char*)pFirstSec->Name, ".text") == 0))
             {
-                if (Try > 20)
-                {
-                    printf("[!] Couldn't find any gadget.\n");
-                    return -1;
-                }
+                GadgetAddress = SigScan((PCHAR)pImageDosHeader + pFirstSec->VirtualAddress, pFirstSec->Misc.VirtualSize, SearchBytes, sizeof(SearchBytes) - 1);
+            
+                if (GadgetAddress)
+                    break;
+            }
+            pFirstSec++;
+        }
 
-                Arguments.push_back(0);
-                Try++;
-                continue;
-            }
-        }
-        else
+        if (!GadgetAddress)
         {
-            // If the calling convention is stdcall then the stack cleanup for the arguments will be performed by the callee so we only have
-            // to ret again.
-            GadgetAddress = SigScan((PCHAR)ModInfo.lpBaseOfDll, ModInfo.SizeOfImage, (PCHAR)"\xC3", 1);
-            if (!GadgetAddress)
-            {
-                printf("[!] Couldn't find any gadget.\n");
-                return -1;
-            }
+            printf("[!] Couldn't find any gadget.\n");
+            return -1;
         }
-#endif
         break;
     }
 
