@@ -19,7 +19,7 @@ enum class CALLINGCONVENTION : DWORD
 };
 
 // Don't call directly.
-extern "C" uintptr_t __cdecl EXECUTE(uintptr_t FunctionAddress, uintptr_t ManipAddress, uintptr_t VariablesAddress, size_t VariableAmount, CALLINGCONVENTION CallConvention);
+extern "C" uintptr_t __cdecl EXECUTE(uintptr_t FunctionAddress, uintptr_t ManipAddress, uintptr_t VariablesAddress, size_t VariableAmount, CALLINGCONVENTION CallConvention, uintptr_t BackupRegisters);
 
 PVOID SigScan(PCHAR StartAddress, SIZE_T Size, PCHAR Pattern, SIZE_T PatternLen)
 {
@@ -94,7 +94,8 @@ uintptr_t SpoofReturn(HMODULE Module, void* FunctionAddress, std::vector<uintptr
         break;
     }
 
-    return EXECUTE((uintptr_t)FunctionAddress, (uintptr_t)GadgetAddress, (uintptr_t)&Arguments[0], ArgumentAmount, CallConvention);
+    uintptr_t BackupRegisters[0x9] = { 0 };
+    return EXECUTE((uintptr_t)FunctionAddress, (uintptr_t)GadgetAddress, (uintptr_t)&Arguments[0], ArgumentAmount, CallConvention, (uintptr_t)BackupRegisters);
 }
 
 void MainThread(HMODULE hModule)

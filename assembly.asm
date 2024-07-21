@@ -13,6 +13,10 @@ EXECUTE PROC
     push 0                                              ; IT DOESN'T ALLOW ME TO SET IT DIRECTLY SO...
     pop [rbp + 28h]                                     ; USING THE SHADOW SPACE ALLOCATED FOR OUR FUNCTION VARIABLES TO STORE THEM
     ; [rbp + 30h] CONTAINS THE CALL CONVENTION BUT WE IGNORE IT ON X64
+    mov rax,[rbp + 38h]
+    mov [rax],rbx
+    mov [rax+8h],rdi
+    mov [rax+10h],rsi
 
     cmp r9, 4                                           ; COMPARING VariableAmount WITH 4
     jbe NOEXTRA                                         ; IF THE VariableAmount IS BELOW OR EQUAL TO 4 THEN IT MEANS THERES NO EXTRA VARIABLES SO WE JUMP TO NOEXTRA
@@ -49,6 +53,13 @@ RETPLACE:
 STACK_ALIGN2:
     add rsp, 8                                          ; STACK ALIGNMENT
 FEND:
+    mov [rbp + 30h],rax
+    mov rax,[rbp + 38h]
+    mov rbx,[rax]
+    mov rdi,[rax + 8h]
+    mov rsi,[rax + 10h]
+    mov rax,[rsp + 30h]
+
     mov rsp, rbp
     pop rbp
     ret                                                 ; ACTUAL RETURN
